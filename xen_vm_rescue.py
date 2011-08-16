@@ -1,11 +1,35 @@
 #!/usr/bin/python
 
+# xen_vm_rescue.py
+# First release - Hereward Cooper <coops@iomart.com>
+
+# Description:
+# This script is designed to "snatch" VMs from a dead XenServer host, and
+# allow them to be started elsewhere. There are basically three steps:
+# 1) Retrieve a list of VMs running on the selected (dead) XenServer.
+# 2) Forcibly reset their power-state to off.
+# 3) Unlock their storage to allow it to be accessed by the new host.
+
+
+# Todo:
+# --> Expand the storage unlocking to handle more than one SR.
+# --> Refine the unlock function.
+# --> World domination.
+
+
+# Xen Login Details:
+xen_cluster = "https://localhost/"
+xen_user = "root"
+xen_password = "oc8Groto"
+
+
+
 import XenAPI
 import sys
 from pprint import pprint
 
-session = XenAPI.Session('https://localhost/')
-session.login_with_password('root','oc8Groto')
+session = XenAPI.Session(xen_cluster)
+session.login_with_password(xen_user,xen_password)
 
 print """
 #####################################################################
@@ -21,7 +45,7 @@ v0.1 Hereward Cooper <coops@iomart.com>
 #####################################################################
 """
 
-
+# Select the dead host from the lists of hosts in the pool
 def select_a_host():
 	all_hosts = [session.xenapi.host.get_record(x) for x in session.xenapi.host.get_all()]
         count = 0
@@ -34,7 +58,7 @@ def select_a_host():
         host_uuid = all_hosts[int(selected_option)-1]["uuid"]
         return(host_uuid)
 
-
+# For each VM on the dead host reset its power-state to OFF
 def reset_vm_powerstate(host):
 	global resident_vms_record
 	resident_vms_record = [session.xenapi.VM.get_record(x) for x in session.xenapi.host.get_resident_VMs(host) if not session.xenapi.VM.get_is_a_template(x) if not session.xenapi.VM.get_is_control_domain(x)]
@@ -60,12 +84,12 @@ def reset_vm_powerstate(host):
 				session.xenapi.VM.power_state_reset(session.xenapi.VM.get_by_uuid(vm["uuid"]))
 
 def list_sr_in_use():
-	sr_in_use_complete=[]							# Create an empty list we can list the SRs in
+	sr_in_use_complete=[]											# Create an empty list we can list the SRs in
 
-	for vm in resident_vms_record:						# Go through each VM in turn
-		for vdi_ref in vm["VBDs"]:					# Get the reference to each vdi connected to the bus
+	for vm in resident_vms_record:									# Go through each VM in turn
+		for vdi_ref in vm["VBDs"]:									# Get the reference to each vdi connected to the bus
 		                vdi = session.xenapi.VBD.get_VDI(vdi_ref)	# Retrieve the VDI itself
-		                if vdi != "OpaqueRef:NULL":			# Check it's not NULL
+		                if vdi != "OpaqueRef:NULL":					# Check it's not NULL
 		                        vdi_name = session.xenapi.VDI.get_name_label(vdi)	# Make a note of it's name
 		                        vdi_sr = session.xenapi.VDI.get_SR(vdi) # Get the storage resource the vdi lives on
 		                        sr_in_use_complete.append(vdi_sr)	# Add the storage resource on our list
@@ -79,14 +103,14 @@ def list_sr_in_use():
 	print "\n"
 	return temp_sr
 
-### TODO EXPAND TO HANDLE MULTIE SRs
-
 
 import util
 import lock
 from vhdutil import LOCK_TYPE_SR
 from cleanup import LOCK_TYPE_RUNNING
 
+
+# Figure out where each VMs disks are (i.e. which SR) by examining the attached buses. Then unlock them.
 def unlock_storage(session, host_uuid, sr_uuid):
 	gc_lock = lock.Lock(LOCK_TYPE_RUNNING, sr_uuid)
 	sr_lock = lock.Lock(LOCK_TYPE_SR, sr_uuid)
@@ -125,4 +149,3 @@ temp_sr = list_sr_in_use()
 #host = "OpaqueRef:832e4c6e-38d1-4644-8331-87e8f41428eb"
 #temp_sr = "4242fef0-bee5-5114-69ec-7c58314fc7d4"
 unlock_storage(session, host, temp_sr)
-
