@@ -18,9 +18,9 @@
 
 
 # Xen Login Details:
-xen_cluster = "https://localhost/"
+xen_url = "https://localhost/"
 xen_user = "root"
-xen_password = "oc8Groto"
+xen_password = "oc7Kokphy&ooc"
 
 
 
@@ -28,10 +28,27 @@ import XenAPI
 import sys
 from pprint import pprint
 
-session = XenAPI.Session(xen_cluster)
+# Assign some decent colours
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+
+    def disable(self):
+        self.HEADER = ''
+        self.OKBLUE = ''
+        self.OKGREEN = ''
+        self.WARNING = ''
+        self.FAIL = ''
+        self.ENDC = ''
+
+session = XenAPI.Session(xen_url)
 session.login_with_password(xen_user,xen_password)
 
-print """
+print bcolors.WARNING + """
 #####################################################################
 
 __  __           __     ____  __   ____                           
@@ -43,7 +60,7 @@ __  __           __     ____  __   ____
 v0.1 Hereward Cooper <coops@iomart.com>
 
 #####################################################################
-"""
+""" + bcolors.ENDC
 
 # Select the dead host from the lists of hosts in the pool
 def select_a_host():
@@ -52,14 +69,14 @@ def select_a_host():
         print "Please select the dead host:\n"
         for host in all_hosts:
                 count = count + 1
-                print str(count) + ") " + host["name_label"] + " [UUID:" + host["uuid"] + "]"
+                print bcolors.OKGREEN + str(count) + ") " + host["name_label"] + " [UUID:" + host["uuid"] + "]" + bcolors.ENDC
         selected_option = raw_input("Enter Host> ")
-
         host_uuid = all_hosts[int(selected_option)-1]["uuid"]
         return(host_uuid)
 
-# For each VM on the dead host reset its power-state to OFF
-def reset_vm_powerstate(host):
+
+# From the given host, retrieve the list of VMs which lvied on it
+def retrieve_vm_list(host):
 	global resident_vms_record
 	resident_vms_record = [session.xenapi.VM.get_record(x) for x in session.xenapi.host.get_resident_VMs(host) if not session.xenapi.VM.get_is_a_template(x) if not session.xenapi.VM.get_is_control_domain(x)]
 	if len(resident_vms_record) < 1:
@@ -69,39 +86,44 @@ def reset_vm_powerstate(host):
 		print "\n#####################################################################"
 		print "\nThese VMs are resident on " + session.xenapi.host.get_name_label(host) + ":\n"
 		for vm in resident_vms_record:
-			print " --> " + vm["name_label"] + " [UUID: " + vm["uuid"] + "]"
-		print "\n!!! Please check these are the VMs you want to snatch!!!\n"
+			print  bcolors.OKBLUE + " --> " + vm["name_label"] + " [UUID: " + vm["uuid"] + "]" + bcolors.ENDC
 		print "\n#####################################################################"
-		print "\nNext each VM's powerstate will be forcibly reset to 'Off'. To continue type YES"
-		answer = raw_input("Continue?> ")	
-		if answer != "YES":
-			sys.exit(1)
-		else:
-			print "\n"
-			for vm in resident_vms_record:
-				# For each VM reset it's powerstate
-				print "Resetting " + vm["name_label"] + " [UUID: " + vm["uuid"] + "]"
-				session.xenapi.VM.power_state_reset(session.xenapi.VM.get_by_uuid(vm["uuid"]))
 
+# For each VM on the dead host reset its power-state to OFF
+def reset_vm_powerstate(host):
+	print "\nNext each VM's powerstate will be forcibly reset to 'Off'. To continue type YES"
+	answer = raw_input("Continue?> ")	
+	if answer != "YES":
+		sys.exit(1)
+	else:
+		print "\n"
+		for vm in resident_vms_record:
+			# For each VM reset it's powerstate
+			print "Resetting " + vm["name_label"] + " [UUID: " + vm["uuid"] + "]"
+			session.xenapi.VM.power_state_reset(session.xenapi.VM.get_by_uuid(vm["uuid"]))
+
+# For each VM find out which SR their drives live on
 def list_sr_in_use():
-	sr_in_use_complete=[]											# Create an empty list we can list the SRs in
+	sr_in_use_complete=[]															# Create an empty list we can list the SRs in
 
-	for vm in resident_vms_record:									# Go through each VM in turn
-		for vdi_ref in vm["VBDs"]:									# Get the reference to each vdi connected to the bus
-		                vdi = session.xenapi.VBD.get_VDI(vdi_ref)	# Retrieve the VDI itself
-		                if vdi != "OpaqueRef:NULL":					# Check it's not NULL
+	for vm in resident_vms_record:													# Go through each VM in turn
+		for vdi_ref in vm["VBDs"]:													# Get the reference to each vdi connected to the bus
+		                vdi = session.xenapi.VBD.get_VDI(vdi_ref)					# Retrieve the VDI itself
+		                if vdi != "OpaqueRef:NULL":									# Check it's not NULL
 		                        vdi_name = session.xenapi.VDI.get_name_label(vdi)	# Make a note of it's name
-		                        vdi_sr = session.xenapi.VDI.get_SR(vdi) # Get the storage resource the vdi lives on
-		                        sr_in_use_complete.append(vdi_sr)	# Add the storage resource on our list
+		                        vdi_sr = session.xenapi.VDI.get_SR(vdi) 			# Get the storage resource the vdi lives on
+		                        sr_in_use_complete.append(vdi_sr)					# Add the storage resource on our list
 	
-	sr_in_use = dict().fromkeys(sr_in_use_complete).keys()			# Remove repeat entries in the storage resource list
+	sr_in_use = dict().fromkeys(sr_in_use_complete).keys()							# Remove repeat entries in the storage resource list
 	
-	print "\nThis is the list of detected Storage Resources which are in use:"
+	print "\nThis is the list of detected Storage Resources which are in use:\n"
+	temp_sr=[]
 	for sr in sr_in_use:
-		print " --> " + session.xenapi.SR.get_name_label(sr) + " [UUID: " + session.xenapi.SR.get_uuid(sr) + "]"
-		temp_sr = session.xenapi.SR.get_uuid(sr)
+		print bcolors.OKBLUE + " --> " + session.xenapi.SR.get_name_label(sr) + " [UUID: " + session.xenapi.SR.get_uuid(sr) + "]" + bcolors.ENDC
+		temp_sr.append(session.xenapi.SR.get_uuid(sr))
 	print "\n"
 	return temp_sr
+
 
 
 import util
@@ -110,7 +132,31 @@ from vhdutil import LOCK_TYPE_SR
 from cleanup import LOCK_TYPE_RUNNING
 
 
-# Figure out where each VMs disks are (i.e. which SR) by examining the attached buses. Then unlock them.
+def unlock_storage_improved(session, host_uuid):
+	#gc_lock = lock.Lock(LOCK_TYPE_RUNNING, sr_uuid)
+	#sr_lock = lock.Lock(LOCK_TYPE_SR, sr_uuid)
+	#gc_lock.acquire()
+	#sr_lock.acquire()
+
+	print "Proceeding with resetting storage locks..."
+
+	host_ref = host_uuid
+	host_key = "host_%s" % host_ref
+
+	for vm in resident_vms_record:
+		for vdi_ref in vm["VBDs"]:
+			vdi = session.xenapi.VBD.get_VDI(vdi_ref)
+			if vdi != "OpaqueRef:NULL":
+				print ("Clearing attached status for VDI %s" % vdi)
+				session.xenapi.VDI.remove_from_sm_config(vdi, host_key)
+	print "Done"
+
+	#sr_lock.release()
+	#gc_lock.release()
+
+
+
+# Unlock each VDI
 def unlock_storage(session, host_uuid, sr_uuid):
 	gc_lock = lock.Lock(LOCK_TYPE_RUNNING, sr_uuid)
 	sr_lock = lock.Lock(LOCK_TYPE_SR, sr_uuid)
@@ -122,6 +168,7 @@ def unlock_storage(session, host_uuid, sr_uuid):
 	host_ref = host_uuid
 	host_key = "host_%s" % host_ref
 
+	# Get list of VDIs on a certain SR
 	vdi_recs = session.xenapi.VDI.get_all_records_where("field \"SR\" = \"%s\"" % sr_ref)
 
 	print "Proceeding with resetting storage locks..."
@@ -141,11 +188,13 @@ def unlock_storage(session, host_uuid, sr_uuid):
 
 host_uuid = select_a_host()
 host = session.xenapi.host.get_by_uuid(host_uuid)
+retrieve_vm_list(host)
 reset_vm_powerstate(host)
-temp_sr = list_sr_in_use()
+#temp_sr = list_sr_in_use()
+unlock_storage_improved(session, host)
 
 #host = "OpaqueRef:c399f64b-d03e-c533-3e04-b7602b8eb63b"
 #host = "OpaqueRef:5a59de4d-b209-fd50-a484-9504d1973885"
 #host = "OpaqueRef:832e4c6e-38d1-4644-8331-87e8f41428eb"
 #temp_sr = "4242fef0-bee5-5114-69ec-7c58314fc7d4"
-unlock_storage(session, host, temp_sr)
+#unlock_storage(session, host, temp_sr)
