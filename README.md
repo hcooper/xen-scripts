@@ -21,5 +21,5 @@ allow them to be started elsewhere. There are basically three steps:
 
 TODO:
 -----
- * Reintroduce SR locking, once I figure out how it works
- * World domination.
+1. Reintroduce SR locking, once I figure out how it works
+2. World domination.
