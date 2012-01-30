@@ -3,6 +3,11 @@
 # xen_vm_rescue.py
 # First release - Hereward Cooper <coops@iomart.com>
 
+# USAGE:
+# ./xen_vm-rescue.py
+# I probably need to be run from /opt/xensource/sm as that's where all
+# my XenAPI python friends live.
+
 # DESCRIPTION:
 # This script is designed to "snatch" VMs from a dead XenServer host, and
 # allow them to be started elsewhere. There are basically three steps:
@@ -18,7 +23,7 @@
 # Xen Login Details, quite important.
 xen_url = "https://localhost/"
 xen_user = "root"
-xen_password = "Hafyerv6"
+xen_password = "PA$$Word"
 
 import XenAPI
 import sys
@@ -41,9 +46,11 @@ class bcolors:
         self.FAIL = ''
         self.ENDC = ''
 
+# Fire up the engines.
 session = XenAPI.Session(xen_url)
 session.login_with_password(xen_user,xen_password)
 
+# Let's make sure people aren't mistaken as to who we are.
 print bcolors.WARNING + """
 #####################################################################
 
@@ -58,9 +65,9 @@ v0.1 Hereward Cooper <coops@iomart.com>
 #####################################################################
 """ + bcolors.ENDC
 
-# Select the dead host from the lists of hosts in the pool
+# Select the dead host from the lists of hosts in the pool (todo: think of a zombie joke to insert here)
 def select_a_host():
-	all_hosts = [session.xenapi.host.get_record(x) for x in session.xenapi.host.get_all()]
+    all_hosts = [session.xenapi.host.get_record(x) for x in session.xenapi.host.get_all()]
         count = 0
         print "Please select the dead host:\n"
         for host in all_hosts:
@@ -71,44 +78,46 @@ def select_a_host():
         return(host_uuid)
 
 
-# From the given host, retrieve the list of VMs which lived on it
+# Get the list of VMs which were live on this host (prepare the child snatcher).
 def retrieve_vm_list(host):
-	global resident_vms_record
-	resident_vms_record = [session.xenapi.VM.get_record(x) for x in session.xenapi.host.get_resident_VMs(host) if not session.xenapi.VM.get_is_a_template(x) if not session.xenapi.VM.get_is_control_domain(x)]
-	if len(resident_vms_record) < 1:
-		print "Quitting... no non-management VMs found on this host"
-		sys.exit(1)
-	else:
-		print "\n#####################################################################"
-		print "\nThese VMs are resident on " + session.xenapi.host.get_name_label(host) + ":\n"
-		for vm in resident_vms_record:
-			print  bcolors.OKBLUE + " --> " + vm["name_label"] + " [UUID: " + vm["uuid"] + "]" + bcolors.ENDC
-		print "\n#####################################################################"
+    global resident_vms_record
+    resident_vms_record = [session.xenapi.VM.get_record(x) for x in session.xenapi.host.get_resident_VMs(host) if not session.xenapi.VM.get_is_a_template(x) if not session.xenapi.VM.get_is_control_domain(x)]
+    if len(resident_vms_record) < 1:
+        print "Quitting... no non-management VMs found on this host"
+        sys.exit(1)
+    else:
+        print "\n#####################################################################"
+        print "\nThese VMs are resident on " + session.xenapi.host.get_name_label(host) + ":\n"
+        for vm in resident_vms_record:
+            print bcolors.OKBLUE + " --> " + vm["name_label"] + " [UUID: " + vm["uuid"] + "]" + bcolors.ENDC
+        print "Total: " + len(resident_vms_record)
+        print "\n#####################################################################"
 
-# For each VM on the dead host reset its power-state to OFF (bye! bye!)
+# For each VM on the dead host reset its power-state to OFF (*BANG* bullet to the head, pulp fiction style)
 def reset_vm_powerstate(host):
-	print "\nNext each VM's powerstate will be forcibly reset to 'Off'. To continue type YES"
-	answer = raw_input("Continue?> ")	
-	if answer != "YES":
-		sys.exit(1)
-	else:
-		print "\n"
-		for vm in resident_vms_record:
-			# For each VM reset it's powerstate
-			print "Resetting " + vm["name_label"] + " [UUID: " + vm["uuid"] + "]"
-			session.xenapi.VM.power_state_reset(session.xenapi.VM.get_by_uuid(vm["uuid"]))
+    print "\nNext each VM's powerstate will be forcibly reset to 'Off'. To continue type YES"
+    answer = raw_input("Continue?> ")   
+    if answer != "YES":
+        sys.exit(1)
+    else:
+        print "\n"
+        for vm in resident_vms_record:
+            # For each VM reset it's powerstate
+            print bcolors.OKBLUE + "Resetting " + vm["name_label"] + " [UUID: " + vm["uuid"] + "]" + bcolors.ENDC
+            session.xenapi.VM.power_state_reset(session.xenapi.VM.get_by_uuid(vm["uuid"]))
 
-# For each VDI remove its storage lock (aka: shot the lock and kick the door down)
+# For each VDI remove its storage lock (I'm sorry, did I distrupt your concentration?)
 def unlock_storage_improved(session, host):
-	print "Proceeding with resetting storage locks..."
-	host_key = "host_%s" % host
+    print "\n#####################################################################\n"
+    print "Proceeding with resetting storage locks...\n"
+    host_key = "host_%s" % host
 
-	for vm in resident_vms_record:
-		for vdi_ref in vm["VBDs"]:
-			vdi = session.xenapi.VBD.get_VDI(vdi_ref)
-			if vdi != "OpaqueRef:NULL":
-				print ("Clearing attached status for VDI %s" % vdi)
-				session.xenapi.VDI.remove_from_sm_config(vdi, host_key)
+    for vm in resident_vms_record:
+        for vdi_ref in vm["VBDs"]:
+            vdi = session.xenapi.VBD.get_VDI(vdi_ref)
+            if vdi != "OpaqueRef:NULL":
+                print bcolors.OKBLUE + ("Unlocking VDI: %s" % vdi) + bcolors.ENDC
+                session.xenapi.VDI.remove_from_sm_config(vdi, host_key)
 
 # Magic. Don't touch.
 host_uuid = select_a_host()
