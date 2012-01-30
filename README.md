@@ -6,11 +6,13 @@ First release - Hereward Cooper <coops@iomart.com>
 USAGE
 -----
 ./xen_vm-rescue.py
+
 I probably need to be run from /opt/xensource/sm as that's where all
 my XenAPI python friends live.
 
 DESCRIPTION
 -----------
+
 This script is designed to "snatch" VMs from a dead XenServer host, and
 allow them to be started elsewhere. There are basically three steps:
 1) Retrieve a list of VMs running on the selected (dead) XenServer.
@@ -19,5 +21,5 @@ allow them to be started elsewhere. There are basically three steps:
 
 TODO:
 -----
---> Reintroduce SR locking, once I figure out how it works
---> World domination.
+ * Reintroduce SR locking, once I figure out how it works
+ * World domination.
