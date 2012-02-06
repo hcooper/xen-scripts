@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # Originally written to save the list of running VMs, so that after a physical server migration
-# an indentical list of VMs can be started. (Avoiding the issue of some VMs set to auto-restart,
+# an identical list of VMs can be started. (Avoiding the issue of some VMs set to auto-restart,
 # and others not).
 
 import sys, time
@@ -43,11 +43,14 @@ v0.1 Hereward Cooper <coops@iomart.com>
 ########################################################################
 """ + bcolors.ENDC
 
+
+DRYRUN=True
+
 def shutdown(session):
 
     print "========= " + xenhost[0] + " ========="
 
-    # If status files already exist for this host, prompt to overwrite, otherwise run away.
+    # If a status files already exist for this host, prompt to overwrite, otherwise run away.
     if os.path.isfile("hosts/"+xenhost[0]):
         answer = raw_input(bcolors.FAIL + "WARNING: status file already exists for this host. Overwrite? (y/n) " + bcolors.ENDC)
         if answer != "y":
@@ -58,6 +61,7 @@ def shutdown(session):
     vms = session.xenapi.VM.get_all()
     print "========= SHUTING DOWN ========="
 
+    # Start with an empty list of VMs
     statuslist = []
 
     for vm in vms:
@@ -73,21 +77,33 @@ def shutdown(session):
             record = session.xenapi.VM.get_record(vm)            
 
             if record["power_state"] == "Suspended":
-                print bcolors.HEADER + record["uuid"] + bcolors.OKGREEN + " HALTING" + bcolors.ENDC
-                session.xenapi.VM.resume(vm, False, True) # start_paused = False; force = True
-                session.xenapi.VM.clean_shutdown(vm)
+                if DRYRUN:
+                    print bcolors.HEADER + record["uuid"] + bcolors.OKGREEN + " HALTING" + bcolors.ENDC
+                else:
+                    print bcolors.HEADER + record["uuid"] + bcolors.OKGREEN + " HALTING" + bcolors.ENDC
+                    session.xenapi.VM.resume(vm, False, True) # start_paused = False; force = True
+                    session.xenapi.VM.clean_shutdown(vm)
 
             elif record["power_state"] == "Paused":
-                print bcolors.HEADER + record["uuid"] + bcolors.OKGREEN + " HALTING" + bcolors.ENDC
-                session.xenapi.VM.unpause(vm)
-                session.xenapi.VM.clean_shutdown(vm)
+                if DRYRUN:
+                    print bcolors.HEADER + record["uuid"] + bcolors.OKGREEN + " HALTING" + bcolors.ENDC
+                else:
+                    print bcolors.HEADER + record["uuid"] + bcolors.OKGREEN + " HALTING" + bcolors.ENDC
+                    session.xenapi.VM.unpause(vm)
+                    session.xenapi.VM.clean_shutdown(vm)
 
             elif record["power_state"] == "Running":
-                print bcolors.HEADER + record["uuid"] + bcolors.OKGREEN + " HALTING" + bcolors.ENDC
-                session.xenapi.VM.clean_shutdown(vm)
+                if DRYRUN:
+                    print bcolors.HEADER + record["uuid"] + bcolors.OKGREEN + " HALTING" + bcolors.ENDC
+                else:
+                    print bcolors.HEADER + record["uuid"] + bcolors.OKGREEN + " HALTING" + bcolors.ENDC
+                    session.xenapi.VM.clean_shutdown(vm)
 
             elif record["power_state"] == "Halted":
-                print bcolors.HEADER + record["uuid"] + bcolors.OKBLUE + " keeping halted" + bcolors.ENDC
+                if DRYRUN:
+                    print bcolors.HEADER + record["uuid"] + bcolors.OKBLUE + " keeping halted" + bcolors.ENDC
+                else:
+                    print bcolors.HEADER + record["uuid"] + bcolors.OKBLUE + " keeping halted" + bcolors.ENDC
 
 
             pickle.dump(statuslist, open ("hosts/"+xenhost[0], "wb") )
@@ -115,11 +131,27 @@ def startup(session):
             print bcolors.HEADER + record["uuid"] + bcolors.FAIL + " HALTING" + bcolors.ENDC
             session.xenapi.VM.clean_shutdown(vm)
 
+    # Move the status list out the way
+    os.rename("hosts/"+xenhost[0], "hosts/"+xenhost[0]+".OLD")
+
 
 if __name__ == "__main__":
+
+    if len(sys.argv) <> 2:
+        print "Usage:"
+        print sys.argv[0], " [OPTION]"
+        print """Options are:
+        * shutdown
+        * startup
+        * status"""
+        sys.exit(1)
+
     for xenhost in xenhosts:
         session = XenAPI.Session("http://" + xenhost[0])
         session.xenapi.login_with_password(xenhost[1], xenhost[2])
+
+        print "Dry run mode - a status list file will be created/overwritten but no VM powerstate will be changed"
+        print ""
 
         if sys.argv[1] == "shutdown":
             shutdown(session)
