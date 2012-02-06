@@ -164,7 +164,7 @@ if __name__ == "__main__":
         try:
             session.xenapi.login_with_password(xenhost[1], xenhost[2])
         except:
-            print xenhost[0] + " login failure - skipping to next host"
+            print bcolors.FAIL + xenhost[0] + " login failure - skipping to next host" + bcolors.ENDC
             continue
 
         if len(sys.argv) > 2 and sys.argv[2] == "--skip-existing":
