@@ -53,9 +53,15 @@ def shutdown(session):
 
     # If a status files already exist for this host, prompt to overwrite, otherwise run away.
     if os.path.isfile("hosts/"+xenhost[0]):
-        answer = raw_input(bcolors.FAIL + "WARNING: status file already exists for this host. Overwrite? (y/n) " + bcolors.ENDC)
-        if answer != "y":
+        # If the skip-existing flag is set, skip already processed hosts
+        if SKIP:
+            print "Skipping host"
             return
+        # Otherwise prompt what to do
+        else:
+            answer = raw_input(bcolors.FAIL + "WARNING: status file already exists for this host. Overwrite? (y/n) " + bcolors.ENDC)
+            if answer != "y":
+                return
 
 
     # Find a non-template VM object
@@ -139,7 +145,7 @@ def startup(session):
 if __name__ == "__main__":
 
     # Can we make sense of what's going on?
-    if len(sys.argv) <> 2:
+    if len(sys.argv) == 1:
         print "Usage:"
         print sys.argv[0], " [OPTION]"
         print """Options are:
@@ -155,7 +161,16 @@ if __name__ == "__main__":
     # Fire up the engines
     for xenhost in xenhosts:
         session = XenAPI.Session("http://" + xenhost[0])
-        session.xenapi.login_with_password(xenhost[1], xenhost[2])
+        try:
+            session.xenapi.login_with_password(xenhost[1], xenhost[2])
+        except:
+            print xenhost[0] + " login failure - skipping to next host"
+            continue
+
+        if len(sys.argv) > 2 and sys.argv[2] == "--skip-existing":
+            SKIP=True
+        else:
+            SKIP=False
 
         # Figure out where we're going
         if sys.argv[1] == "shutdown":
