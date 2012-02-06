@@ -8,6 +8,8 @@ import sys, time
 import XenAPI
 import pickle
 import os.path
+import optparse
+import time
 
 # Read in our list of Xen hosts (and their connection details)
 # [host,user,pass]
@@ -40,12 +42,11 @@ print bcolors.WARNING + """
 
 v0.1 Hereward Cooper <coops@iomart.com>
 
+By default all actions are dry run only. See --help for more info
+
 ########################################################################
 """ + bcolors.ENDC
 
-
-# Are we for real?
-DRYRUN=True
 
 def shutdown(session):
 
@@ -144,19 +145,32 @@ def startup(session):
 
 if __name__ == "__main__":
 
-    # Can we make sense of what's going on?
-    if len(sys.argv) == 1:
-        print "Usage:"
-        print sys.argv[0], " [OPTION]"
-        print """Options are:
-        * shutdown
-        * startup
-        * status"""
-        sys.exit(1)
+    # Set some defaults
+    SKIP=False
+    DRYRUN=True
 
-    if DRYRUN:
-        print "Dry run mode - status file will be created/overwritten, but no VM power states changed"
-        print ""
+    parser = optparse.OptionParser()
+    parser.add_option('--skip', help='skips hosts which already have a status file', dest='skip', default=False, action='store_true')
+    parser.add_option('--real', help='skips dry run, and alters VMs power state', dest='real', default=False, action='store_true')
+    parser.add_option('--shutdown', help='start the shutdown procedure', dest='shutdown', action='store_true')
+    parser.add_option('--startup', help='start the startup procedure', dest='startup', action='store_true')
+    (opts, args) = parser.parse_args()
+
+    # Check we're not being told to do something stupid
+    if opts.shutdown and opts.startup:
+        print "Please only run --shutdown or --startup"
+        sys.exit(-1)
+
+    # If the --real flag is set, disable the DRYRUN variable
+    if opts.real:
+        print "WARNING - this is for real!"
+        DRYRUN=False
+        time.sleep(3)
+    print ""
+
+    # If the --skip flag is set, enable the SKIP variable
+    if opts.skip:
+        SKIP=True
 
     # Fire up the engines
     for xenhost in xenhosts:
@@ -167,15 +181,7 @@ if __name__ == "__main__":
             print bcolors.FAIL + xenhost[0] + " login failure - skipping to next host" + bcolors.ENDC
             continue
 
-        if len(sys.argv) > 2 and sys.argv[2] == "--skip-existing":
-            SKIP=True
-        else:
-            SKIP=False
-
-        # Figure out where we're going
-        if sys.argv[1] == "shutdown":
+        if opts.shutdown:
             shutdown(session)
-        elif sys.argv[1] == "startup":
+        if opts.startup:
             startup(session)
-        elif sys.argv[1] == "status":
-            sys.exit(1)
