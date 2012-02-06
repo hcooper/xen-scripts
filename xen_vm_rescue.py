@@ -68,14 +68,14 @@ v0.1 Hereward Cooper <coops@iomart.com>
 # Select the dead host from the lists of hosts in the pool (todo: think of a zombie joke to insert here)
 def select_a_host():
     all_hosts = [session.xenapi.host.get_record(x) for x in session.xenapi.host.get_all()]
-        count = 0
-        print "Please select the dead host:\n"
-        for host in all_hosts:
-                count = count + 1
-                print bcolors.OKGREEN + str(count) + ") " + host["name_label"] + " [UUID:" + host["uuid"] + "]" + bcolors.ENDC
-        selected_option = raw_input("Enter Host> ")
-        host_uuid = all_hosts[int(selected_option)-1]["uuid"]
-        return(host_uuid)
+    count = 0
+    print "Please select the dead host:\n"
+    for host in all_hosts:
+        count = count + 1
+        print bcolors.OKGREEN + str(count) + ") " + host["name_label"] + " [UUID:" + host["uuid"] + "]" + bcolors.ENDC
+    selected_option = raw_input("Enter Host> ")
+    host_uuid = all_hosts[int(selected_option)-1]["uuid"]
+    return(host_uuid)
 
 
 # Get the list of VMs which were live on this host (prepare the child snatcher).
