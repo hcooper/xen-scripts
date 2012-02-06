@@ -44,6 +44,7 @@ v0.1 Hereward Cooper <coops@iomart.com>
 """ + bcolors.ENDC
 
 
+# Are we for real?
 DRYRUN=True
 
 def shutdown(session):
@@ -137,6 +138,7 @@ def startup(session):
 
 if __name__ == "__main__":
 
+    # Can we make sense of what's going on?
     if len(sys.argv) <> 2:
         print "Usage:"
         print sys.argv[0], " [OPTION]"
@@ -146,14 +148,19 @@ if __name__ == "__main__":
         * status"""
         sys.exit(1)
 
+    if DRYRUN:
+        print "Dry run mode - status file will be created/overwritten, but no VM power states changed"
+        print ""
+
+    # Fire up the engines
     for xenhost in xenhosts:
         session = XenAPI.Session("http://" + xenhost[0])
         session.xenapi.login_with_password(xenhost[1], xenhost[2])
 
-        print "Dry run mode - a status list file will be created/overwritten but no VM powerstate will be changed"
-        print ""
-
+        # Figure out where we're going
         if sys.argv[1] == "shutdown":
             shutdown(session)
         elif sys.argv[1] == "startup":
             startup(session)
+        elif sys.argv[1] == "status":
+            sys.exit(1)
