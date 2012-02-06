@@ -163,7 +163,7 @@ if __name__ == "__main__":
 
     # If the --real flag is set, disable the DRYRUN variable
     if opts.real:
-        print "WARNING - this is for real!"
+        print bcolors.FAIL + "WARNING - this is for real!" + bcolors.ENDC
         DRYRUN=False
         time.sleep(3)
     print ""
