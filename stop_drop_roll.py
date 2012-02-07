@@ -34,23 +34,17 @@ class bcolors:
 
 # Let's make sure people aren't mistaken as to who we are.
 print bcolors.WARNING + """
-########################################################################
   _   _   _     _   _   _   _     _   _   _   _     _     _   _   _   _  
  / \ / \ / \   / \ / \ / \ / \   / \ / \ / \ / \   / \   / \ / \ / \ / \ 
 ( X | e | n ) ( S | t | o | p ) ( D | r | o | p ) ( & ) ( R | o | l | l )
  \_/ \_/ \_/   \_/ \_/ \_/ \_/   \_/ \_/ \_/ \_/   \_/   \_/ \_/ \_/ \_/ 
 
-v0.1 Hereward Cooper <coops@iomart.com>
-
-By default all actions are dry run only. See --help for more info
-
-########################################################################
 """ + bcolors.ENDC
 
 
 def shutdown(session):
 
-    print "========= " + xenhost[0] + " ========="
+    print "---> " + xenhost[0]
 
     # If a status files already exist for this host, prompt to overwrite, otherwise run away.
     if os.path.isfile("hosts/"+xenhost[0]):
@@ -85,33 +79,24 @@ def shutdown(session):
             record = session.xenapi.VM.get_record(vm)            
 
             if record["power_state"] == "Suspended":
-                if DRYRUN:
-                    print bcolors.HEADER + record["uuid"] + bcolors.OKGREEN + " HALTING" + bcolors.ENDC
-                else:
-                    print bcolors.HEADER + record["uuid"] + bcolors.OKGREEN + " HALTING" + bcolors.ENDC
+                print record["uuid"] + bcolors.OKGREEN + " RESUMING & HALTING" + bcolors.ENDC
+                if DRYRUN is False:
                     session.xenapi.VM.resume(vm, False, True) # start_paused = False; force = True
                     session.xenapi.VM.clean_shutdown(vm)
 
             elif record["power_state"] == "Paused":
-                if DRYRUN:
-                    print bcolors.HEADER + record["uuid"] + bcolors.OKGREEN + " HALTING" + bcolors.ENDC
-                else:
-                    print bcolors.HEADER + record["uuid"] + bcolors.OKGREEN + " HALTING" + bcolors.ENDC
+                print record["uuid"] + bcolors.OKGREEN + " UNPAUSING & HALTING" + bcolors.ENDC
+                if DRYRUN is False:
                     session.xenapi.VM.unpause(vm)
                     session.xenapi.VM.clean_shutdown(vm)
 
             elif record["power_state"] == "Running":
-                if DRYRUN:
-                    print bcolors.HEADER + record["uuid"] + bcolors.OKGREEN + " HALTING" + bcolors.ENDC
-                else:
-                    print bcolors.HEADER + record["uuid"] + bcolors.OKGREEN + " HALTING" + bcolors.ENDC
+                print record["uuid"] + bcolors.OKGREEN + " HALTING" + bcolors.ENDC
+                if DRYRUN is False:
                     session.xenapi.VM.clean_shutdown(vm)
 
             elif record["power_state"] == "Halted":
-                if DRYRUN:
-                    print bcolors.HEADER + record["uuid"] + bcolors.OKBLUE + " keeping halted" + bcolors.ENDC
-                else:
-                    print bcolors.HEADER + record["uuid"] + bcolors.OKBLUE + " keeping halted" + bcolors.ENDC
+                print record["uuid"] + bcolors.OKBLUE + " keeping halted" + bcolors.ENDC
 
 
             pickle.dump(statuslist, open ("hosts/"+xenhost[0], "wb") )
@@ -119,28 +104,37 @@ def shutdown(session):
 def startup(session):
     print "========= STARTING UP ========="
     # Read in the list of VM statuses
-    statuslist = pickle.load( open( "hosts/"+xenhost[0], "rb" ) )
+    try:
+        statuslist = pickle.load( open( "hosts/"+xenhost[0], "rb" ) )
+    except:
+        print bcolors.FAIL + "Failed to read status file for " + xenhost[0] + bcolors.ENDC
+        return
+
+    print "---> " + xenhost[0]
 
     for uuid,state,name in statuslist:
         vm = session.xenapi.VM.get_by_uuid(uuid)
         record = session.xenapi.VM.get_record(vm)
 
         if state == "Running" and record["power_state"] == "Running":
-            print bcolors.HEADER + record["uuid"] + bcolors.OKBLUE + " keeping running" + bcolors.ENDC
+            print record["uuid"] + bcolors.OKBLUE + " keeping running" + bcolors.ENDC
 
         if state == "Running" and record["power_state"] == "Halted":
-            print bcolors.HEADER + record["uuid"] + bcolors.OKGREEN + " STARTING" + bcolors.ENDC
-            session.xenapi.VM.start(vm, False, False)
+            print record["uuid"] + bcolors.OKGREEN + " STARTING" + bcolors.ENDC
+            if DRYRUN is False:
+                session.xenapi.VM.start(vm, False, False)
 
         if state == "Halted" and record["power_state"] == "Halted":
-            print bcolors.HEADER + record["uuid"] + bcolors.OKBLUE + " keeping halted" + bcolors.ENDC
+            print record["uuid"] + bcolors.OKBLUE + " keeping halted" + bcolors.ENDC
 
         if state == "Halted" and record["power_state"] == "Running":
-            print bcolors.HEADER + record["uuid"] + bcolors.FAIL + " HALTING" + bcolors.ENDC
-            session.xenapi.VM.clean_shutdown(vm)
+            print record["uuid"] + bcolors.FAIL + " HALTING" + bcolors.ENDC
+            if DRYRUN is False:
+                session.xenapi.VM.clean_shutdown(vm)
 
     # Move the status list out the way
-    os.rename("hosts/"+xenhost[0], "hosts/"+xenhost[0]+".OLD")
+    if DRYRUN is False:
+        os.rename("hosts/"+xenhost[0], "hosts/"+xenhost[0]+".OLD")
 
 
 if __name__ == "__main__":
@@ -165,7 +159,9 @@ if __name__ == "__main__":
     if opts.real:
         print bcolors.FAIL + "WARNING - this is for real!" + bcolors.ENDC
         DRYRUN=False
-        time.sleep(3)
+        time.sleep(5)
+    else:
+        print bcolors.OKBLUE + "DRY RUN ONLY" + bcolors.ENDC
     print ""
 
     # If the --skip flag is set, enable the SKIP variable
@@ -173,15 +169,18 @@ if __name__ == "__main__":
         SKIP=True
 
     # Fire up the engines
-    for xenhost in xenhosts:
-        session = XenAPI.Session("http://" + xenhost[0])
-        try:
-            session.xenapi.login_with_password(xenhost[1], xenhost[2])
-        except:
-            print bcolors.FAIL + xenhost[0] + " login failure - skipping to next host" + bcolors.ENDC
-            continue
-
-        if opts.shutdown:
-            shutdown(session)
-        if opts.startup:
-            startup(session)
+    if opts.shutdown or opts.startup:
+        for xenhost in xenhosts:
+            session = XenAPI.Session("http://" + xenhost[0])
+            try:
+                session.xenapi.login_with_password(xenhost[1], xenhost[2])
+            except:
+                print bcolors.FAIL + xenhost[0] + " login failure - skipping to next host" + bcolors.ENDC
+                continue
+    
+            if opts.shutdown:
+                shutdown(session)
+            if opts.startup:
+                startup(session)
+    else:
+        print "Run with --help for usage details"
