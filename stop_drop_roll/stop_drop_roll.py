@@ -102,6 +102,7 @@ def shutdown(session):
             pickle.dump(statuslist, open ("hosts/"+xenhost[0], "wb") )
 
 def shutdown_host(session):
+    # Only power down the hosts if we're not doing a dry run!
     if DRYRUN is False:
         try:
             session.xenapi.host.disable(session.xenapi.host.get_all()[0])
