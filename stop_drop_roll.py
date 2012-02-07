@@ -102,16 +102,19 @@ def shutdown(session):
             pickle.dump(statuslist, open ("hosts/"+xenhost[0], "wb") )
 
 def shutdown_host(session):
-    try:
-        session.xenapi.host.disable(session.xenapi.host.get_all()[0])
-        print "disabling host"
-    except:
-        print "failed to disable host"
+    if DRYRUN is False:
+        try:
+            session.xenapi.host.disable(session.xenapi.host.get_all()[0])
+            print "disabling host"
+        except:
+            print "failed to disable host"
 
-    try:
-        session.xenapi.host.shutdown(session.xenapi.host.get_all()[0])
-    except:
-        print "failed to shutdown host"
+        try:
+            session.xenapi.host.shutdown(session.xenapi.host.get_all()[0])
+        except:
+            print "failed to shutdown host"
+    else:
+        print "dry run - not shuting down host"
 
 def startup(session):
     print "========= STARTING UP ========="
