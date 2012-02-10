@@ -166,7 +166,7 @@ if __name__ == "__main__":
 
     parser = optparse.OptionParser()
     parser.add_option('--skip', help='skips hosts which already have a status file', dest='skip', default=False, action='store_true')
-    parser.add_option('--real', help='skips dry run, and alters VMs power state', dest='real', default=False, action='store_true')
+    parser.add_option('--REAL', help='skips dry run, and alters VMs power state', dest='real', default=False, action='store_true')
     parser.add_option('--shutdown', help='start the shutdown procedure', dest='shutdown', action='store_true')
     parser.add_option('--startup', help='start the startup procedure', dest='startup', action='store_true')
     (opts, args) = parser.parse_args()
