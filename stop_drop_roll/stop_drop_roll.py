@@ -52,7 +52,7 @@ def shutdown(session):
     if os.path.isfile("hosts/"+xenhost[0]):
         # If the skip-existing flag is set, skip already processed hosts
         if SKIP:
-            print "Skipping host"
+            print "\n--> " + xenhost[0] + bcolors.WARNING + " SKIPPING" + bcolors.ENDC
             return
         # Otherwise prompt what to do
         else:
