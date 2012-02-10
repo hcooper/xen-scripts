@@ -56,7 +56,7 @@ def shutdown(session):
             return
         # Otherwise prompt what to do
         else:
-            answer = raw_input(bcolors.FAIL + "WARNING: status file already exists for this host. Overwrite? (y/n) " + bcolors.ENDC)
+            answer = raw_input(bcolors.FAIL + "\nWARNING: status file already exists for "+xenhost[0]+". Overwrite? (y/n) " + bcolors.ENDC)
             if answer != "y":
                 return
 
