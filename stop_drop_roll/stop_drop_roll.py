@@ -4,8 +4,12 @@
 # an identical list of VMs can be started. (Avoiding the issue of some VMs set to auto-restart,
 # and others not).
 
-import sys, time
+# Licensed under GPL (version 3) - 2011 Hereward Cooper <coops@fawk.eu>
+
+# XenAPI.py is part of Xen API toolkit
 import XenAPI
+
+import sys, time
 import pickle
 import os.path
 import optparse
@@ -44,8 +48,6 @@ print bcolors.WARNING + """
 
 def shutdown(session):
 
-    print "---> " + xenhost[0]
-
     # If a status files already exist for this host, prompt to overwrite, otherwise run away.
     if os.path.isfile("hosts/"+xenhost[0]):
         # If the skip-existing flag is set, skip already processed hosts
@@ -58,10 +60,12 @@ def shutdown(session):
             if answer != "y":
                 return
 
+    print "\n---> " + xenhost[0]
 
     # Find a non-template VM object
     vms = session.xenapi.VM.get_all()
-    print "========= SHUTING DOWN ========="
+    print "Task: SHUTING DOWN"
+    print "------------------"
 
     # Start with an empty list of VMs
     statuslist = []
@@ -118,7 +122,6 @@ def shutdown_host(session):
         print "dry run - not shuting down host"
 
 def startup(session):
-    print "========= STARTING UP ========="
     # Read in the list of VM statuses
     try:
         statuslist = pickle.load( open( "hosts/"+xenhost[0], "rb" ) )
@@ -127,6 +130,8 @@ def startup(session):
         return
 
     print "---> " + xenhost[0]
+    print "Task: STARTING UP"
+    print "-----------------"
 
     for uuid,state,name in statuslist:
         vm = session.xenapi.VM.get_by_uuid(uuid)
@@ -196,7 +201,7 @@ if __name__ == "__main__":
     
             if opts.shutdown:
                 shutdown(session)
-                shutdown_host(session)
+                #shutdown_host(session)
             if opts.startup:
                 startup(session)
     else:
